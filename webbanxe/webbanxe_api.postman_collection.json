@@ -1,0 +1,680 @@
+{
+  "info": {
+    "name": "WebBanXe – Full API",
+    "_postman_id": "webbanxe-full-api-v3",
+    "description": "## WebBanXe RESTful API với JWT Authentication\n\n### Cấu trúc file PHP\n```\napp/\n  api/\n    AuthApi.php       ← POST /api/auth/login, GET /api/auth/me\n    ProductApi.php    ← CRUD /api/product\n    CategoryApi.php   ← CRUD /api/category\n  helpers/\n    JwtHelper.php     ← encode / decode / requireAuth()\n```\n\n### Luồng sử dụng\n1. Chạy server: `C:\\xampp\\php\\php.exe -S 127.0.0.1:8000 router.php`\n2. Gọi **🔐 Login** → token tự động lưu vào `{{token}}`\n3. Gọi bất kỳ request nào – token đã được gắn sẵn\n\n### Phân quyền\n| Ký hiệu | Nghĩa |\n|---------|-------|\n| 🟢 | Công khai – không cần token |\n| 🔒 | Cần JWT token (mọi role) |\n| 🔴 | Chỉ role **admin** |",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8386/api",
+      "type": "string",
+      "description": "Base URL – đổi thành http://localhost/webbanxe/api nếu dùng XAMPP Apache"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT token – tự động lưu khi gọi Login"
+    },
+    {
+      "key": "product_id",
+      "value": "1",
+      "type": "string",
+      "description": "ID sản phẩm cho GET detail / PUT / DELETE"
+    },
+    {
+      "key": "category_id",
+      "value": "1",
+      "type": "string",
+      "description": "ID danh mục cho GET detail / PUT / DELETE"
+    },
+    {
+      "key": "order_id",
+      "value": "1",
+      "type": "string",
+      "description": "ID đơn hàng – tự động lưu sau khi gọi POST /order/checkout"
+    }
+  ],
+  "item": [
+
+    {
+      "name": "🔐 Auth  (AuthApi.php)",
+      "item": [
+
+        {
+          "name": "Login → lấy token  [POST /auth/login]",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Có JWT token', () => {",
+                "    const j = pm.response.json();",
+                "    pm.expect(j.success).to.be.true;",
+                "    pm.expect(j.token).to.be.a('string');",
+                "    pm.expect(j.token.split('.')).to.have.length(3);",
+                "});",
+                "// ⚡ Tự động lưu token",
+                "const j = pm.response.json();",
+                "if (j.token) {",
+                "    pm.collectionVariables.set('token', j.token);",
+                "    console.log('✅ Token lưu OK | user:', j.user.username, '| role:', j.user.role);",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"password\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth","login"] },
+            "description": "**File:** `app/api/AuthApi.php` → `login()`\n\nĐăng nhập và nhận JWT token.\nTest script **tự động lưu** token vào `{{token}}`.\n\n| Field | Mô tả |\n|---|---|\n| username | Tên đăng nhập |\n| password | Mật khẩu |\n\n**Tài khoản mặc định:** admin / password"
+          },
+          "response": [
+            {
+              "name": "200 – Thành công",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Đăng nhập thành công\",\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBiYW54ZS52biIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTcxODYwMDAwMCwiZXhwIjoxNzE4NjAzNjAwfQ.SIGNATURE\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 3600,\n  \"user\": { \"id\": 1, \"username\": \"admin\", \"email\": \"admin@banxe.vn\", \"role\": \"admin\" }\n}",
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "name": "401 – Sai mật khẩu",
+              "status": "Unauthorized", "code": 401,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": false, \"message\": \"Sai username hoặc password\" }",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        },
+
+        {
+          "name": "Xem thông tin user  [GET /auth/me]  🔒",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Có thông tin user', () => {",
+                "    const j = pm.response.json();",
+                "    pm.expect(j.success).to.be.true;",
+                "    pm.expect(j.user.username).to.be.a('string');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth","me"] },
+            "description": "**File:** `app/api/AuthApi.php` → `me()`\n\nXác thực token và xem thông tin user đang đăng nhập.\n\n🔒 Cần header `Authorization: Bearer {{token}}`"
+          },
+          "response": [
+            {
+              "name": "200 – Token hợp lệ",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{\n  \"success\": true,\n  \"user\": { \"user_id\": 1, \"username\": \"admin\", \"email\": \"admin@banxe.vn\", \"role\": \"admin\" },\n  \"token_info\": { \"issued_at\": \"2024-06-17 08:00:00\", \"expires_at\": \"2024-06-17 09:00:00\" }\n}",
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "name": "401 – Token hết hạn / sai",
+              "status": "Unauthorized", "code": 401,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Unauthorized: Token không hợp lệ hoặc đã hết hạn.\",\n  \"hint\": \"Hãy đăng nhập lại qua POST /api/auth/login\"\n}",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "📦 Product  (ProductApi.php)",
+      "item": [
+
+        {
+          "name": "Danh sách sản phẩm  [GET /product]  🟢",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Có danh sách', () => {",
+                "    const j = pm.response.json();",
+                "    pm.expect(j.success).to.be.true;",
+                "    pm.expect(j.data).to.be.an('array');",
+                "    console.log('Tổng sản phẩm:', j.count);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/product", "host": ["{{base_url}}"], "path": ["product"] },
+            "description": "**File:** `app/api/ProductApi.php` → `list()`\n\n🟢 Không cần token"
+          },
+          "response": [
+            {
+              "name": "200 – Danh sách",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{\n  \"success\": true,\n  \"count\": 6,\n  \"data\": [\n    { \"id\": 6, \"name\": \"Lamborghini Urus\", \"description\": \"...\", \"price\": \"18000000000\", \"brand\": \"Lamborghini\", \"category_name\": \"Xe Thể thao\" },\n    { \"id\": 1, \"name\": \"Toyota Camry 2024\", \"description\": \"...\", \"price\": \"1200000000\", \"brand\": \"Toyota\", \"category_name\": \"Xe Sedan\" }\n  ]\n}",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        },
+
+        {
+          "name": "Chi tiết sản phẩm  [GET /product/:id]  🟢",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200 hoặc 404', () => {",
+                "    pm.expect([200, 404]).to.include(pm.response.code);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/product/{{product_id}}", "host": ["{{base_url}}"], "path": ["product","{{product_id}}"] },
+            "description": "**File:** `app/api/ProductApi.php` → `detail($id)`\n\n🟢 Không cần token\n\nThay `{{product_id}}` bằng ID thực tế"
+          },
+          "response": [
+            {
+              "name": "200 – Chi tiết",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": true, \"data\": { \"id\": 1, \"name\": \"Toyota Camry 2024\", \"price\": \"1200000000\", \"brand\": \"Toyota\", \"category_id\": 2, \"category_name\": \"Xe Sedan\" } }",
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "name": "404 – Không tìm thấy",
+              "status": "Not Found", "code": 404,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": false, \"message\": \"Sản phẩm không tồn tại\" }",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        },
+
+        {
+          "name": "Thêm sản phẩm  [POST /product]  🔒",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 201 (tạo thành công)', () => pm.response.to.have.status(201));",
+                "pm.test('success = true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "description": "🔒 JWT token" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Honda Wave Alpha 110\",\n  \"description\": \"Xe số phổ thông tiết kiệm nhiên liệu, bền bỉ\",\n  \"price\": 18500000,\n  \"brand\": \"Honda\",\n  \"category_id\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/product", "host": ["{{base_url}}"], "path": ["product"] },
+            "description": "**File:** `app/api/ProductApi.php` → `create()`\n\n🔒 Cần JWT token\n\n| Field | Bắt buộc |\n|---|---|\n| name | ✅ |\n| description | ✅ |\n| price | ✅ |\n| brand | ❌ |\n| category_id | ❌ |"
+          },
+          "response": [
+            {
+              "name": "201 – Tạo thành công",
+              "status": "Created", "code": 201,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": true, \"message\": \"Thêm sản phẩm thành công\", \"created_by\": \"admin\" }",
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "name": "401 – Không có token",
+              "status": "Unauthorized", "code": 401,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": false, \"message\": \"Unauthorized: Token không tồn tại. Vui lòng đăng nhập.\", \"hint\": \"Thêm header: Authorization: Bearer <token>\" }",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        },
+
+        {
+          "name": "Cập nhật sản phẩm  [PUT /product/:id]  🔒",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('success = true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Honda Wave Alpha 110 – 2024\",\n  \"price\": 19900000\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/product/{{product_id}}", "host": ["{{base_url}}"], "path": ["product","{{product_id}}"] },
+            "description": "**File:** `app/api/ProductApi.php` → `update($id)`\n\n🔒 Cần JWT token\n\nChỉ gửi trường muốn thay đổi – trường còn lại **giữ nguyên**"
+          },
+          "response": [
+            {
+              "name": "200 – Cập nhật OK",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": true, \"message\": \"Cập nhật thành công\", \"updated_by\": \"admin\" }",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        },
+
+        {
+          "name": "Xóa sản phẩm  [DELETE /product/:id]  🔴 admin",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200 hoặc 403', () => {",
+                "    pm.expect([200, 403, 404]).to.include(pm.response.code);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/product/{{product_id}}", "host": ["{{base_url}}"], "path": ["product","{{product_id}}"] },
+            "description": "**File:** `app/api/ProductApi.php` → `delete($id)`\n\n🔴 Cần JWT token + role **admin**\n\n⚠️ Không thể hoàn tác!"
+          },
+          "response": [
+            {
+              "name": "200 – Xóa OK",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": true, \"message\": \"Xóa sản phẩm thành công\", \"deleted_by\": \"admin\" }",
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "name": "403 – Không phải admin",
+              "status": "Forbidden", "code": 403,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": false, \"message\": \"Chỉ admin mới được xóa sản phẩm\" }",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "🗂️ Category  (CategoryApi.php)",
+      "item": [
+
+        {
+          "name": "Danh sách danh mục  [GET /category]  🟢",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Có danh sách', () => {",
+                "    const j = pm.response.json();",
+                "    pm.expect(j.success).to.be.true;",
+                "    pm.expect(j.data).to.be.an('array');",
+                "    console.log('Tổng danh mục:', j.count);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/category", "host": ["{{base_url}}"], "path": ["category"] },
+            "description": "**File:** `app/api/CategoryApi.php` → `list()`\n\n🟢 Không cần token\n\nKết quả kèm `product_count` – số sản phẩm trong mỗi danh mục"
+          },
+          "response": [
+            {
+              "name": "200 – Danh sách",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{\n  \"success\": true,\n  \"count\": 4,\n  \"data\": [\n    { \"id\": 1, \"name\": \"Xe SUV\", \"slug\": \"xe-suv\", \"product_count\": 2 },\n    { \"id\": 2, \"name\": \"Xe Sedan\", \"slug\": \"xe-sedan\", \"product_count\": 1 }\n  ]\n}",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        },
+
+        {
+          "name": "Chi tiết danh mục  [GET /category/:id]  🟢",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/category/{{category_id}}", "host": ["{{base_url}}"], "path": ["category","{{category_id}}"] },
+            "description": "**File:** `app/api/CategoryApi.php` → `detail($id)`\n\n🟢 Không cần token"
+          },
+          "response": [
+            {
+              "name": "200 – Chi tiết",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": true, \"data\": { \"id\": 1, \"name\": \"Xe SUV\", \"description\": \"Dòng xe SUV đa dụng\", \"slug\": \"xe-suv\" } }",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        },
+
+        {
+          "name": "Thêm danh mục  [POST /category]  🔒",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                "pm.test('success = true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Xe Điện\",\n  \"description\": \"Các dòng xe điện hiện đại, thân thiện môi trường\",\n  \"slug\": \"xe-dien\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/category", "host": ["{{base_url}}"], "path": ["category"] },
+            "description": "**File:** `app/api/CategoryApi.php` → `create()`\n\n🔒 Cần JWT token\n\n| Field | Bắt buộc |\n|---|---|\n| name | ✅ |\n| description | ❌ |\n| slug | ❌ (tự tạo từ name) |"
+          },
+          "response": [
+            {
+              "name": "201 – Tạo thành công",
+              "status": "Created", "code": 201,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": true, \"message\": \"Thêm danh mục thành công\", \"created_by\": \"admin\" }",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        },
+
+        {
+          "name": "Cập nhật danh mục  [PUT /category/:id]  🔒",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('success = true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Xe SUV Cao Cấp\",\n  \"description\": \"Dòng xe SUV hạng sang, đa dụng\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/category/{{category_id}}", "host": ["{{base_url}}"], "path": ["category","{{category_id}}"] },
+            "description": "**File:** `app/api/CategoryApi.php` → `update($id)`\n\n🔒 Cần JWT token"
+          },
+          "response": [
+            {
+              "name": "200 – Cập nhật OK",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": true, \"message\": \"Cập nhật thành công\", \"updated_by\": \"admin\" }",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        },
+
+        {
+          "name": "Xóa danh mục  [DELETE /category/:id]  🔴 admin",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200 hoặc 403', () => {",
+                "    pm.expect([200, 403, 404]).to.include(pm.response.code);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/category/{{category_id}}", "host": ["{{base_url}}"], "path": ["category","{{category_id}}"] },
+            "description": "**File:** `app/api/CategoryApi.php` → `delete($id)`\n\n🔴 Cần JWT token + role **admin**"
+          },
+          "response": [
+            {
+              "name": "200 – Xóa OK",
+              "status": "OK", "code": 200,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": true, \"message\": \"Xóa danh mục thành công\", \"deleted_by\": \"admin\" }",
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "name": "403 – Không phải admin",
+              "status": "Forbidden", "code": 403,
+              "header": [{"key":"Content-Type","value":"application/json; charset=utf-8"}],
+              "body": "{ \"success\": false, \"message\": \"Chỉ admin mới được xóa danh mục\" }",
+              "_postman_previewlanguage": "json"
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "🛒 Cart  (CartApi.php)",
+      "description": "Giỏ hàng lưu theo session.\n\n🔒 Tất cả đều cần JWT token.\n\n**Luồng:** Thêm xe → xem giỏ → checkout",
+      "item": [
+
+        {
+          "name": "Xem giỏ hàng  [GET /cart]  🔒",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('Có items', () => pm.expect(pm.response.json().success).to.be.true);"],"type":"text/javascript"}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+            "url": {"raw":"{{base_url}}/cart","host":["{{base_url}}"],"path":["cart"]},
+            "description": "**File:** `app/api/CartApi.php` → `list()`\n\nXem giỏ hàng hiện tại kèm tổng tiền và tiền cọc (5%).\n\n🔒 Cần JWT token"
+          },
+          "response": [{"name":"200 – Giỏ hàng","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{\n  \"success\": true,\n  \"items\": [\n    { \"id\": 1, \"name\": \"Toyota Camry 2024\", \"price\": 1190000000, \"brand\": \"Toyota\" }\n  ],\n  \"count\": 1,\n  \"total\": 1190000000,\n  \"deposit\": 59500000\n}","_postman_previewlanguage":"json"}]
+        },
+
+        {
+          "name": "Thêm xe vào giỏ  [POST /cart]  🔒",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('success = true', () => pm.expect(pm.response.json().success).to.be.true);"],"type":"text/javascript"}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}],
+            "body": {"mode":"raw","raw":"{\n  \"product_id\": {{product_id}}\n}","options":{"raw":{"language":"json"}}},
+            "url": {"raw":"{{base_url}}/cart","host":["{{base_url}}"],"path":["cart"]},
+            "description": "**File:** `app/api/CartApi.php` → `add()`\n\nThêm xe vào giỏ hàng. Mỗi xe chỉ được thêm 1 lần.\n\n🔒 Cần JWT token\n\n| Field | Mô tả |\n|---|---|\n| product_id | ID sản phẩm muốn thêm |"
+          },
+          "response": [
+            {"name":"200 – Thêm thành công","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": true, \"message\": \"Đã thêm xe vào giỏ hàng\", \"count\": 1, \"total\": 1190000000, \"deposit\": 59500000 }","_postman_previewlanguage":"json"},
+            {"name":"400 – Xe đã có trong giỏ","status":"Bad Request","code":400,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": false, \"message\": \"Xe này đã có trong giỏ hàng\" }","_postman_previewlanguage":"json"}
+          ]
+        },
+
+        {
+          "name": "Xóa 1 xe khỏi giỏ  [DELETE /cart/:product_id]  🔒",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+            "url": {"raw":"{{base_url}}/cart/{{product_id}}","host":["{{base_url}}"],"path":["cart","{{product_id}}"]},
+            "description": "**File:** `app/api/CartApi.php` → `remove($id)`\n\n🔒 Cần JWT token"
+          },
+          "response": [{"name":"200 – Xóa OK","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": true, \"message\": \"Đã xóa khỏi giỏ hàng\", \"count\": 0, \"total\": 0, \"deposit\": 0 }","_postman_previewlanguage":"json"}]
+        },
+
+        {
+          "name": "Xóa toàn bộ giỏ  [DELETE /cart]  🔒",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+            "url": {"raw":"{{base_url}}/cart","host":["{{base_url}}"],"path":["cart"]},
+            "description": "**File:** `app/api/CartApi.php` → `clear()`\n\nXóa toàn bộ giỏ hàng.\n\n🔒 Cần JWT token"
+          },
+          "response": [{"name":"200 – Cleared","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": true, \"message\": \"Đã xóa toàn bộ giỏ hàng\", \"count\": 0, \"items\": [], \"total\": 0, \"deposit\": 0 }","_postman_previewlanguage":"json"}]
+        }
+
+      ]
+    },
+
+    {
+      "name": "📋 Order  (OrderApi.php)",
+      "description": "Đặt lịch hẹn, thanh toán cọc và quản lý đơn hàng.\n\n**Luồng hoàn chỉnh:**\n1. Thêm xe vào giỏ (`POST /cart`)\n2. Đặt lịch (`POST /order/checkout`)\n3. Thanh toán online (`POST /order/{id}/pay`)\n\n**Tiền cọc = 5% giá trị xe**\n\n| Phương thức | Ghi chú |\n|---|---|\n| `cash` | Tiền mặt – xác nhận ngay |\n| `qr` | Quét mã QR |\n| `momo` | Ví MoMo |\n| `bank` | Chuyển khoản |\n| `shopeepay` | ShopeePay |",
+      "item": [
+
+        {
+          "name": "Đặt lịch hẹn  [POST /order/checkout]  🔒",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('Có order_id', () => {","    const j = pm.response.json();","    if (j.order_id) pm.collectionVariables.set('order_id', String(j.order_id));","    pm.expect(j.success).to.be.true;","});"],"type":"text/javascript"}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}],
+            "body": {"mode":"raw","raw":"{\n  \"payment_method\": \"momo\",\n  \"appointment_date\": \"2024-12-30\"\n}","options":{"raw":{"language":"json"}}},
+            "url": {"raw":"{{base_url}}/order/checkout","host":["{{base_url}}"],"path":["order","checkout"]},
+            "description": "**File:** `app/api/OrderApi.php` → `checkout()`\n\nĐặt lịch hẹn xem xe từ giỏ hàng hiện tại.\n\n🔒 Cần JWT token (phải có sản phẩm trong giỏ trước)\n\n| Field | Bắt buộc | Mô tả |\n|---|---|---|\n| payment_method | ✅ | cash / qr / momo / bank / shopeepay |\n| appointment_date | ✅ | Ngày hẹn (YYYY-MM-DD, phải ≥ hôm nay) |\n\n**cash** → xác nhận ngay, xóa giỏ hàng\n**Khác** → pending, gọi tiếp `POST /order/{id}/pay`\n\n⚡ Test script tự động lưu `{{order_id}}`"
+          },
+          "response": [
+            {"name":"200 – Đặt lịch cash","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{\n  \"success\": true,\n  \"message\": \"Đặt lịch thành công! Vui lòng đến showroom đúng hẹn để đặt cọc.\",\n  \"order_id\": 13,\n  \"payment_method\": \"cash\",\n  \"payment_status\": \"completed\",\n  \"appointment_date\": \"2024-12-30\",\n  \"deposit_amount\": 59500000,\n  \"total_vehicle\": 1190000000,\n  \"items_count\": 1\n}","_postman_previewlanguage":"json"},
+            {"name":"200 – Đặt lịch MoMo (pending)","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{\n  \"success\": true,\n  \"message\": \"Đơn hàng đã tạo. Vui lòng hoàn tất thanh toán.\",\n  \"order_id\": 14,\n  \"payment_method\": \"momo\",\n  \"payment_status\": \"pending\",\n  \"appointment_date\": \"2024-12-30\",\n  \"deposit_amount\": 59500000,\n  \"next_step\": \"POST /api/order/14/pay  để xác nhận thanh toán\"\n}","_postman_previewlanguage":"json"},
+            {"name":"400 – Giỏ hàng trống","status":"Bad Request","code":400,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": false, \"message\": \"Giỏ hàng trống. Thêm sản phẩm trước khi đặt lịch.\" }","_postman_previewlanguage":"json"}
+          ]
+        },
+
+        {
+          "name": "Xác nhận thanh toán  [POST /order/:id/pay]  🔒",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('success', () => pm.expect(pm.response.json().success).to.be.true);"],"type":"text/javascript"}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+            "url": {"raw":"{{base_url}}/order/{{order_id}}/pay","host":["{{base_url}}"],"path":["order","{{order_id}}","pay"]},
+            "description": "**File:** `app/api/OrderApi.php` → `pay($id)`\n\nMô phỏng xác nhận thanh toán online (QR, MoMo, Bank...).\nCập nhật `payment_status` → `completed`.\n\n🔒 Cần JWT token (chỉ chủ đơn hoặc admin)"
+          },
+          "response": [{"name":"200 – Thanh toán OK","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": true, \"message\": \"Thanh toán thành công! Đã xác nhận cọc giữ xe.\", \"order_id\": 14, \"paid_by\": \"admin\" }","_postman_previewlanguage":"json"}]
+        },
+
+        {
+          "name": "Đơn hàng của tôi  [GET /order]  🔒",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));","pm.test('Có danh sách', () => pm.expect(pm.response.json().data).to.be.an('array'));"],"type":"text/javascript"}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+            "url": {"raw":"{{base_url}}/order","host":["{{base_url}}"],"path":["order"]},
+            "description": "**File:** `app/api/OrderApi.php` → `myOrders()`\n\nXem tất cả đơn hàng của user đang đăng nhập.\n\n🔒 Cần JWT token"
+          },
+          "response": [{"name":"200 – Danh sách","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{\n  \"success\": true,\n  \"count\": 2,\n  \"data\": [\n    { \"id\": 13, \"total_amount\": \"59500000\", \"payment_method\": \"cash\", \"payment_status\": \"completed\", \"status\": \"pending\", \"appointment_date\": \"2024-12-30\", \"item_count\": 1 }\n  ]\n}","_postman_previewlanguage":"json"}]
+        },
+
+        {
+          "name": "Chi tiết đơn hàng  [GET /order/:id]  🔒",
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+            "url": {"raw":"{{base_url}}/order/{{order_id}}","host":["{{base_url}}"],"path":["order","{{order_id}}"]},
+            "description": "**File:** `app/api/OrderApi.php` → `detail($id)`\n\nXem chi tiết đơn hàng kèm danh sách xe đã đặt.\n\n🔒 Cần JWT token (chủ đơn hoặc admin)"
+          },
+          "response": [{"name":"200 – Chi tiết","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{\n  \"success\": true,\n  \"data\": {\n    \"order\": { \"id\": 13, \"total_amount\": \"59500000\", \"payment_status\": \"completed\", \"appointment_date\": \"2024-12-30\" },\n    \"items\": [{ \"id\": 1, \"product_id\": 1, \"price\": \"1190000000\", \"product_name\": \"Toyota Camry 2024\" }]\n  }\n}","_postman_previewlanguage":"json"}]
+        },
+
+        {
+          "name": "Hủy đơn hàng  [DELETE /order/:id]  🔒",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+            "url": {"raw":"{{base_url}}/order/{{order_id}}","host":["{{base_url}}"],"path":["order","{{order_id}}"]},
+            "description": "**File:** `app/api/OrderApi.php` → `cancel($id)`\n\nHủy đơn hàng (chỉ khi chưa thanh toán).\n\n🔒 Cần JWT token"
+          },
+          "response": [
+            {"name":"200 – Hủy OK","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": true, \"message\": \"Đã hủy đơn hàng thành công\" }","_postman_previewlanguage":"json"},
+            {"name":"400 – Đã thanh toán","status":"Bad Request","code":400,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": false, \"message\": \"Không thể hủy đơn hàng đã thanh toán\" }","_postman_previewlanguage":"json"}
+          ]
+        },
+
+        {
+          "name": "── ADMIN ── Tất cả đơn hàng  [GET /order/all]  🔴",
+          "event": [{"listen":"test","script":{"exec":["pm.test('Status 200', () => pm.response.to.have.status(200));"],"type":"text/javascript"}}],
+          "request": {
+            "method": "GET",
+            "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+            "url": {
+              "raw":"{{base_url}}/order/all?limit=20&offset=0",
+              "host":["{{base_url}}"],"path":["order","all"],
+              "query":[{"key":"limit","value":"20"},{"key":"offset","value":"0"}]
+            },
+            "description": "**File:** `app/api/OrderApi.php` → `allOrders()`\n\nXem toàn bộ đơn hàng hệ thống.\n\n🔴 Chỉ admin\n\n| Query | Mô tả |\n|---|---|\n| limit | Số lượng (max 100, mặc định 50) |\n| offset | Bắt đầu từ (phân trang) |"
+          },
+          "response": [{"name":"200 – Danh sách admin","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{\n  \"success\": true,\n  \"total\": 12,\n  \"limit\": 20,\n  \"offset\": 0,\n  \"data\": [\n    { \"id\": 12, \"username\": \"admin\", \"total_amount\": \"675000000\", \"payment_status\": \"completed\", \"status\": \"pending\" }\n  ]\n}","_postman_previewlanguage":"json"}]
+        },
+
+        {
+          "name": "── ADMIN ── Cập nhật trạng thái  [PUT /order/:id/status]  🔴",
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}],
+            "body": {"mode":"raw","raw":"{\n  \"status\": \"confirmed\"\n}","options":{"raw":{"language":"json"}}},
+            "url": {"raw":"{{base_url}}/order/{{order_id}}/status","host":["{{base_url}}"],"path":["order","{{order_id}}","status"]},
+            "description": "**File:** `app/api/OrderApi.php` → `updateStatus($id)`\n\nCập nhật trạng thái đơn hàng.\n\n🔴 Chỉ admin\n\n| status | Nghĩa |\n|---|---|\n| pending | Chờ xử lý |\n| confirmed | Đã xác nhận |\n| cancelled | Đã hủy |"
+          },
+          "response": [{"name":"200 – Cập nhật OK","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": true, \"message\": \"Đơn hàng #13 → trạng thái: confirmed\", \"updated_by\": \"admin\" }","_postman_previewlanguage":"json"}]
+        },
+
+        {
+          "name": "── ADMIN ── Xóa đơn hàng  [DELETE /order/:id/force]  🔴",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key":"Authorization","value":"Bearer {{token}}"}],
+            "url": {"raw":"{{base_url}}/order/{{order_id}}/force","host":["{{base_url}}"],"path":["order","{{order_id}}","force"]},
+            "description": "**File:** `app/api/OrderApi.php` → `forceDelete($id)`\n\nXóa đơn hàng bất kể trạng thái.\n\n🔴 Chỉ admin\n⚠️ Không thể hoàn tác!"
+          },
+          "response": [{"name":"200 – Xóa OK","status":"OK","code":200,"header":[{"key":"Content-Type","value":"application/json; charset=utf-8"}],"body":"{ \"success\": true, \"message\": \"Đã xóa đơn hàng #13\", \"deleted_by\": \"admin\" }","_postman_previewlanguage":"json"}]
+        }
+
+      ]
+    }
+
+  ]
+}

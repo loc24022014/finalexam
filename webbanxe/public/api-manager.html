@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Manager – WebBanXe</title>
+  <meta name="description" content="Giao diện quản lý Product và Category qua RESTful API với jQuery Ajax" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0f1a;
+      --surface:   #161929;
+      --card:      #1e2235;
+      --border:    #2b2f4a;
+      --accent:    #6c63ff;
+      --accent2:   #00d4aa;
+      --danger:    #ff4d6d;
+      --warn:      #ffb347;
+      --text:      #e2e8f0;
+      --text-muted:#8892b0;
+      --radius:    12px;
+      --shadow:    0 8px 32px rgba(0,0,0,.45);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Topbar ── */
+    header {
+      background: linear-gradient(135deg, #1a1d3a 0%, #12162b 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+    }
+    .logo { font-size: 1.4rem; font-weight: 700; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .logo span { font-weight: 300; }
+    .header-sub { font-size: .8rem; color: var(--text-muted); border-left: 2px solid var(--border); padding-left: 1rem; }
+    .server-badge { margin-left: auto; display: flex; align-items: center; gap: .5rem; font-size: .78rem; color: var(--text-muted); background: rgba(108,99,255,.1); border: 1px solid rgba(108,99,255,.3); padding: .3rem .75rem; border-radius: 999px; }
+    .dot { width: 8px; height: 8px; background: var(--accent2); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: .5rem; padding: 1.5rem 2rem .5rem; }
+    .tab-btn {
+      padding: .6rem 1.6rem; border-radius: 999px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-muted); font-size: .9rem; font-weight: 500;
+      cursor: pointer; transition: all .2s;
+    }
+    .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 0 18px rgba(108,99,255,.4); }
+    .tab-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+
+    /* ── Layout ── */
+    .workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; padding: 1rem 2rem 2rem; }
+    @media(max-width:900px){ .workspace { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 1.25rem;
+      background: rgba(108,99,255,.07);
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-title { font-size: .95rem; font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+    .panel-title .icon { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: .9rem; }
+    .icon-product { background: rgba(108,99,255,.2); }
+    .icon-category { background: rgba(0,212,170,.2); }
+
+    /* ── Form ── */
+    .form-area { padding: 1.25rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    .form-group { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .75rem; }
+    label { font-size: .78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+    input, select, textarea {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: .55rem .85rem;
+      font-size: .88rem;
+      font-family: inherit;
+      transition: border-color .2s, box-shadow .2s;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(108,99,255,.15);
+    }
+    textarea { resize: vertical; min-height: 72px; }
+
+    /* ── Buttons ── */
+    .btn-row { display: flex; gap: .6rem; flex-wrap: wrap; }
+    .btn {
+      padding: .55rem 1.2rem; border: none; border-radius: 8px; font-size: .85rem;
+      font-weight: 600; cursor: pointer; transition: all .2s; font-family: inherit;
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .btn-primary  { background: var(--accent);  color: #fff; box-shadow: 0 4px 14px rgba(108,99,255,.35); }
+    .btn-primary:hover  { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(108,99,255,.5); }
+    .btn-success  { background: var(--accent2); color: #0d0f1a; }
+    .btn-success:hover  { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,212,170,.4); }
+    .btn-danger   { background: var(--danger);  color: #fff; }
+    .btn-danger:hover   { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,77,109,.4); }
+    .btn-warn     { background: var(--warn);    color: #0d0f1a; }
+    .btn-warn:hover     { transform: translateY(-1px); }
+    .btn-ghost    { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+    .btn-ghost:hover    { border-color: var(--accent); color: var(--text); }
+    .btn-sm { padding: .3rem .75rem; font-size: .78rem; border-radius: 6px; }
+
+    /* ── Table / List ── */
+    .list-area { padding: 0 1.25rem 1.25rem; max-height: 360px; overflow-y: auto; }
+    .list-area::-webkit-scrollbar { width: 5px; }
+    .list-area::-webkit-scrollbar-track { background: transparent; }
+    .list-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+    thead th { padding: .6rem .75rem; text-align: left; color: var(--text-muted); font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); }
+    tbody tr { border-bottom: 1px solid rgba(43,47,74,.6); transition: background .15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(108,99,255,.05); }
+    td { padding: .6rem .75rem; vertical-align: middle; }
+    .price-tag { color: var(--accent2); font-weight: 600; }
+    .badge { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 600; }
+    .badge-cat { background: rgba(0,212,170,.15); color: var(--accent2); }
+    .badge-brand { background: rgba(108,99,255,.15); color: var(--accent); }
+    .action-cell { display: flex; gap: .35rem; }
+
+    /* ── Toast ── */
+    #toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; display: flex; flex-direction: column; gap: .5rem; z-index: 9999; }
+    .toast {
+      padding: .75rem 1.25rem; border-radius: 10px; font-size: .87rem; font-weight: 500;
+      color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.5); min-width: 240px;
+      animation: slideIn .3s ease; border-left: 4px solid;
+    }
+    @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
+    .toast.success { background: #1a3a2e; border-color: var(--accent2); }
+    .toast.error   { background: #3a1a1e; border-color: var(--danger); }
+    .toast.info    { background: #1a1d3a; border-color: var(--accent); }
+
+    /* ── Response viewer ── */
+    .response-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin: 0 2rem 2rem;
+      overflow: hidden;
+    }
+    .response-header { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1.25rem; border-bottom: 1px solid var(--border); font-size: .85rem; font-weight: 600; }
+    .response-body { padding: 1rem 1.25rem; font-family: 'Courier New', monospace; font-size: .8rem; color: var(--accent2); max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+    .status-badge { padding: .2rem .6rem; border-radius: 6px; font-size: .75rem; font-weight: 700; }
+    .status-ok   { background: rgba(0,212,170,.2); color: var(--accent2); }
+    .status-err  { background: rgba(255,77,109,.2); color: var(--danger); }
+
+    /* ── Loading ── */
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 2.5rem; color: var(--text-muted); font-size: .85rem; }
+    .empty .empty-icon { font-size: 2.5rem; margin-bottom: .75rem; opacity: .4; }
+
+    /* Tab content visibility */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .section-separator { border: none; border-top: 1px solid var(--border); margin: .5rem 1.25rem; }
+    .load-btn-row { padding: .75rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: .75rem; }
+    .count-badge { font-size: .75rem; color: var(--text-muted); margin-left: auto; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">WebBan<span>Xe</span></div>
+  <div class="header-sub">RESTful API Manager &amp; jQuery Frontend</div>
+  <div class="server-badge">
+    <div class="dot"></div>
+    <span id="api-base-display"></span>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" id="tab-product-btn" onclick="switchTab('product')">🛵 Products</button>
+  <button class="tab-btn" id="tab-category-btn" onclick="switchTab('category')">🗂️ Categories</button>
+</div>
+
+<!-- ═══ PRODUCTS TAB ═══ -->
+<div id="tab-product" class="tab-content active">
+  <div class="workspace">
+
+    <!-- Form: Add / Edit Product -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <div class="icon icon-product">📦</div>
+          <span id="product-form-title">Thêm Sản Phẩm Mới</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="product-reset-btn" onclick="resetProductForm()">✕ Reset</button>
+      </div>
+      <div class="form-area">
+        <input type="hidden" id="product-id" />
+        <div class="form-group">
+          <label>Tên sản phẩm *</label>
+          <input type="text" id="product-name" placeholder="Ví dụ: Honda Wave Alpha 110" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Giá (VNĐ) *</label>
+            <input type="number" id="product-price" placeholder="18500000" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Thương hiệu</label>
+            <input type="text" id="product-brand" placeholder="Honda, Yamaha..." />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Danh mục</label>
+          <select id="product-category">
+            <option value="">-- Chọn danh mục --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Mô tả *</label>
+          <textarea id="product-desc" placeholder="Mô tả chi tiết sản phẩm..."></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="product-save-btn" onclick="saveProduct()">
+            <span>💾</span> <span id="product-save-label">Thêm sản phẩm</span>
+          </button>
+          <button class="btn btn-ghost" onclick="resetProductForm()">Hủy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- List: Products -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <div class="icon icon-product">📋</div>
+          Danh Sách Sản Phẩm
+        </div>
+      </div>
+      <div class="load-btn-row">
+        <button class="btn btn-success btn-sm" onclick="loadProducts()">🔄 Tải danh sách</button>
+        <span class="count-badge" id="product-count"></span>
+      </div>
+      <div class="list-area">
+        <div class="empty" id="product-empty">
+          <div class="empty-icon">📦</div>
+          Bấm "Tải danh sách" để xem sản phẩm
+        </div>
+        <table id="product-table" style="display:none">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tên</th>
+              <th>Giá</th>
+              <th>Hãng</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="product-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ CATEGORIES TAB ═══ -->
+<div id="tab-category" class="tab-content">
+  <div class="workspace">
+
+    <!-- Form: Add / Edit Category -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <div class="icon icon-category">🗂️</div>
+          <span id="category-form-title">Thêm Danh Mục Mới</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="resetCategoryForm()">✕ Reset</button>
+      </div>
+      <div class="form-area">
+        <input type="hidden" id="category-id" />
+        <div class="form-group">
+          <label>Tên danh mục *</label>
+          <input type="text" id="category-name" placeholder="Ví dụ: Xe số" />
+        </div>
+        <div class="form-group">
+          <label>Slug (tự động nếu để trống)</label>
+          <input type="text" id="category-slug" placeholder="xe-so" />
+        </div>
+        <div class="form-group">
+          <label>Mô tả</label>
+          <textarea id="category-desc" placeholder="Mô tả danh mục..."></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="category-save-btn" onclick="saveCategory()">
+            <span>💾</span> <span id="category-save-label">Thêm danh mục</span>
+          </button>
+          <button class="btn btn-ghost" onclick="resetCategoryForm()">Hủy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- List: Categories -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <div class="icon icon-category">📋</div>
+          Danh Sách Danh Mục
+        </div>
+      </div>
+      <div class="load-btn-row">
+        <button class="btn btn-success btn-sm" onclick="loadCategories()">🔄 Tải danh sách</button>
+        <span class="count-badge" id="category-count"></span>
+      </div>
+      <div class="list-area">
+        <div class="empty" id="category-empty">
+          <div class="empty-icon">🗂️</div>
+          Bấm "Tải danh sách" để xem danh mục
+        </div>
+        <table id="category-table" style="display:none">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tên</th>
+              <th>Slug</th>
+              <th>Sản phẩm</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="category-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ Response Viewer ═══ -->
+<div class="response-panel">
+  <div class="response-header">
+    <span>📡 API Response</span>
+    <div style="display:flex;gap:.75rem;align-items:center">
+      <code id="last-method" style="font-size:.75rem;color:var(--warn)"></code>
+      <code id="last-url"    style="font-size:.75rem;color:var(--text-muted);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></code>
+      <span class="status-badge" id="last-status"></span>
+    </div>
+  </div>
+  <div class="response-body" id="response-body">// API response sẽ hiển thị ở đây...</div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  Configuration
+// ═══════════════════════════════════════════════════════════
+const BASE = (() => {
+  const loc = window.location;
+  // Detect if served from PHP server at root or from /public
+  if (loc.pathname.startsWith('/public/')) {
+    return loc.protocol + '//' + loc.host;          // /api/...
+  }
+  return loc.protocol + '//' + loc.host;
+})();
+
+const API = BASE + '/api';
+$('#api-base-display').text(API);
+
+// ═══════════════════════════════════════════════════════════
+//  Utility helpers
+// ═══════════════════════════════════════════════════════════
+function fmt(n) {
+  return Number(n).toLocaleString('vi-VN') + ' đ';
+}
+
+function showResponse(method, url, status, data) {
+  $('#last-method').text(method);
+  $('#last-url').text(url);
+  const ok = status >= 200 && status < 300;
+  $('#last-status')
+    .text(status)
+    .attr('class', 'status-badge ' + (ok ? 'status-ok' : 'status-err'));
+  $('#response-body').text(JSON.stringify(data, null, 2));
+}
+
+function toast(msg, type = 'info') {
+  const t = $('<div class="toast ' + type + '">' + msg + '</div>');
+  $('#toast-container').append(t);
+  setTimeout(() => {
+    t.css('animation', 'slideOut .3s ease forwards');
+    setTimeout(() => t.remove(), 300);
+  }, 3000);
+}
+
+function apiCall(method, url, data, successCb, errorCb) {
+  const opts = {
+    method,
+    url,
+    contentType: 'application/json',
+    dataType: 'json',
+    success: function(res, textStatus, xhr) {
+      showResponse(method, url, xhr.status, res);
+      if (successCb) successCb(res);
+    },
+    error: function(xhr) {
+      let body;
+      try { body = JSON.parse(xhr.responseText); } catch(e) { body = { raw: xhr.responseText }; }
+      showResponse(method, url, xhr.status, body);
+      if (errorCb) errorCb(body, xhr.status);
+    }
+  };
+  if (data !== null && data !== undefined) opts.data = JSON.stringify(data);
+  $.ajax(opts);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Tab switching
+// ═══════════════════════════════════════════════════════════
+function switchTab(tab) {
+  $('.tab-content').removeClass('active');
+  $('.tab-btn').removeClass('active');
+  $('#tab-' + tab).addClass('active');
+  $('#tab-' + tab + '-btn').addClass('active');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PRODUCTS
+// ═══════════════════════════════════════════════════════════
+function loadProducts() {
+  apiCall('GET', API + '/product', null,
+    function(res) {
+      if (!res.success) { toast('Không thể tải sản phẩm: ' + (res.message||''), 'error'); return; }
+      const products = res.data || [];
+      $('#product-count').text(products.length + ' sản phẩm');
+      const tbody = $('#product-tbody').empty();
+      if (products.length === 0) {
+        $('#product-empty').show();
+        $('#product-table').hide();
+        return;
+      }
+      $('#product-empty').hide();
+      $('#product-table').show();
+      products.forEach(p => {
+        tbody.append(`<tr>
+          <td>${p.id}</td>
+          <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</td>
+          <td class="price-tag">${fmt(p.price)}</td>
+          <td><span class="badge badge-brand">${p.brand||'–'}</span></td>
+          <td class="action-cell">
+            <button class="btn btn-warn btn-sm" onclick="editProduct(${p.id})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id},'${p.name.replace(/'/g,"\\'")}')">🗑️</button>
+          </td>
+        </tr>`);
+      });
+      toast('Đã tải ' + products.length + ' sản phẩm', 'success');
+    },
+    function(err) { toast('Lỗi: ' + (err.message||'Không thể kết nối API'), 'error'); }
+  );
+}
+
+function resetProductForm() {
+  $('#product-id').val('');
+  $('#product-name').val('');
+  $('#product-price').val('');
+  $('#product-brand').val('');
+  $('#product-category').val('');
+  $('#product-desc').val('');
+  $('#product-form-title').text('Thêm Sản Phẩm Mới');
+  $('#product-save-label').text('Thêm sản phẩm');
+  $('#product-save-btn').removeClass('btn-warn').addClass('btn-primary');
+}
+
+function editProduct(id) {
+  apiCall('GET', API + '/product/' + id, null,
+    function(res) {
+      if (!res.success) { toast('Không tìm thấy sản phẩm', 'error'); return; }
+      const p = res.data;
+      $('#product-id').val(p.id);
+      $('#product-name').val(p.name);
+      $('#product-price').val(p.price);
+      $('#product-brand').val(p.brand);
+      $('#product-category').val(p.category_id||'');
+      $('#product-desc').val(p.description);
+      $('#product-form-title').text('Chỉnh Sửa Sản Phẩm #' + p.id);
+      $('#product-save-label').text('Cập nhật sản phẩm');
+      $('#product-save-btn').removeClass('btn-primary').addClass('btn-warn');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toast('Đã tải thông tin sản phẩm #' + id, 'info');
+    },
+    function(err) { toast('Lỗi khi lấy chi tiết: ' + (err.message||''), 'error'); }
+  );
+}
+
+function saveProduct() {
+  const id = $('#product-id').val();
+  const payload = {
+    name:        $('#product-name').val().trim(),
+    description: $('#product-desc').val().trim(),
+    price:       Number($('#product-price').val()),
+    brand:       $('#product-brand').val().trim(),
+    category_id: $('#product-category').val() || null
+  };
+
+  if (!payload.name || !payload.description || !payload.price) {
+    toast('Vui lòng điền đầy đủ thông tin bắt buộc!', 'error'); return;
+  }
+
+  if (id) {
+    // UPDATE
+    apiCall('PUT', API + '/product/' + id, payload,
+      function(res) {
+        if (res.success) { toast('✅ Cập nhật sản phẩm thành công!', 'success'); resetProductForm(); loadProducts(); }
+        else              { toast('❌ ' + (res.message||JSON.stringify(res.errors)), 'error'); }
+      },
+      function(err) { toast('❌ Lỗi: ' + (err.message||''), 'error'); }
+    );
+  } else {
+    // CREATE
+    apiCall('POST', API + '/product', payload,
+      function(res) {
+        if (res.success) { toast('✅ Thêm sản phẩm thành công!', 'success'); resetProductForm(); loadProducts(); }
+        else              { toast('❌ ' + (res.message||JSON.stringify(res.errors)), 'error'); }
+      },
+      function(err) { toast('❌ Lỗi: ' + (err.message||''), 'error'); }
+    );
+  }
+}
+
+function deleteProduct(id, name) {
+  if (!confirm('Xóa sản phẩm "' + name + '"? Hành động này không thể hoàn tác!')) return;
+  apiCall('DELETE', API + '/product/' + id, null,
+    function(res) {
+      if (res.success) { toast('🗑️ Đã xóa sản phẩm #' + id, 'success'); loadProducts(); }
+      else              { toast('❌ ' + (res.message||''), 'error'); }
+    },
+    function(err) { toast('❌ Lỗi xóa: ' + (err.message||''), 'error'); }
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CATEGORIES
+// ═══════════════════════════════════════════════════════════
+function loadCategories() {
+  apiCall('GET', API + '/category', null,
+    function(res) {
+      if (!res.success) { toast('Không thể tải danh mục', 'error'); return; }
+      const cats = res.data || [];
+      $('#category-count').text(cats.length + ' danh mục');
+      const tbody = $('#category-tbody').empty();
+      // Also populate product category select
+      const sel = $('#product-category').empty().append('<option value="">-- Chọn danh mục --</option>');
+      if (cats.length === 0) {
+        $('#category-empty').show();
+        $('#category-table').hide();
+        return;
+      }
+      $('#category-empty').hide();
+      $('#category-table').show();
+      cats.forEach(c => {
+        tbody.append(`<tr>
+          <td>${c.id}</td>
+          <td>${c.name}</td>
+          <td><span class="badge badge-cat">${c.slug||'–'}</span></td>
+          <td style="text-align:center">${c.product_count||0}</td>
+          <td class="action-cell">
+            <button class="btn btn-warn btn-sm" onclick="editCategory(${c.id})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteCategory(${c.id},'${c.name.replace(/'/g,"\\'")}')">🗑️</button>
+          </td>
+        </tr>`);
+        sel.append('<option value="'+c.id+'">'+c.name+'</option>');
+      });
+      toast('Đã tải ' + cats.length + ' danh mục', 'success');
+    },
+    function(err) { toast('Lỗi: ' + (err.message||''), 'error'); }
+  );
+}
+
+function resetCategoryForm() {
+  $('#category-id').val('');
+  $('#category-name').val('');
+  $('#category-slug').val('');
+  $('#category-desc').val('');
+  $('#category-form-title').text('Thêm Danh Mục Mới');
+  $('#category-save-label').text('Thêm danh mục');
+  $('#category-save-btn').removeClass('btn-warn').addClass('btn-primary');
+}
+
+function editCategory(id) {
+  apiCall('GET', API + '/category/' + id, null,
+    function(res) {
+      if (!res.success) { toast('Không tìm thấy danh mục', 'error'); return; }
+      const c = res.data;
+      $('#category-id').val(c.id);
+      $('#category-name').val(c.name);
+      $('#category-slug').val(c.slug);
+      $('#category-desc').val(c.description);
+      $('#category-form-title').text('Chỉnh Sửa Danh Mục #' + c.id);
+      $('#category-save-label').text('Cập nhật danh mục');
+      $('#category-save-btn').removeClass('btn-primary').addClass('btn-warn');
+      toast('Đã tải thông tin danh mục #' + id, 'info');
+    },
+    function(err) { toast('Lỗi khi lấy chi tiết: ' + (err.message||''), 'error'); }
+  );
+}
+
+function saveCategory() {
+  const id = $('#category-id').val();
+  const payload = {
+    name:        $('#category-name').val().trim(),
+    description: $('#category-desc').val().trim(),
+    slug:        $('#category-slug').val().trim()
+  };
+
+  if (!payload.name) { toast('Vui lòng nhập tên danh mục!', 'error'); return; }
+
+  if (id) {
+    apiCall('PUT', API + '/category/' + id, payload,
+      function(res) {
+        if (res.success) { toast('✅ Cập nhật danh mục thành công!', 'success'); resetCategoryForm(); loadCategories(); }
+        else              { toast('❌ ' + (res.message||JSON.stringify(res.errors)), 'error'); }
+      },
+      function(err) { toast('❌ Lỗi: ' + (err.message||''), 'error'); }
+    );
+  } else {
+    apiCall('POST', API + '/category', payload,
+      function(res) {
+        if (res.success) { toast('✅ Thêm danh mục thành công!', 'success'); resetCategoryForm(); loadCategories(); }
+        else              { toast('❌ ' + (res.message||JSON.stringify(res.errors)), 'error'); }
+      },
+      function(err) { toast('❌ Lỗi: ' + (err.message||''), 'error'); }
+    );
+  }
+}
+
+function deleteCategory(id, name) {
+  if (!confirm('Xóa danh mục "' + name + '"?')) return;
+  apiCall('DELETE', API + '/category/' + id, null,
+    function(res) {
+      if (res.success) { toast('🗑️ Đã xóa danh mục #' + id, 'success'); loadCategories(); }
+      else              { toast('❌ ' + (res.message||''), 'error'); }
+    },
+    function(err) { toast('❌ Lỗi xóa: ' + (err.message||''), 'error'); }
+  );
+}
+
+// Load categories on start for the product form select
+$(function() {
+  loadCategories();
+});
+</script>
+</body>
+</html>
