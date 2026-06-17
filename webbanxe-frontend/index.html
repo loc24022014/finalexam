@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WebBanXe – Cửa hàng xe ô tô</title>
+  <meta name="description" content="Hệ thống mua bán xe ô tô trực tuyến – Frontend kết nối RESTful API"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- ═══ NAVBAR ═══ -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a class="nav-logo" href="#" onclick="showPage('home')">
+      🚗 <span>WebBan<em>Xe</em></span>
+    </a>
+    <div class="nav-links" id="nav-links">
+      <a href="#" onclick="showPage('home')"    class="nav-link active" id="nl-home">Trang chủ</a>
+      <a href="#" onclick="showPage('products')" class="nav-link" id="nl-products">Sản phẩm</a>
+      <a href="#" onclick="showPage('categories')" class="nav-link" id="nl-categories">Danh mục</a>
+      <a href="#" onclick="showPage('admin')"   class="nav-link" id="nl-admin" style="display:none">⚙ Quản lý</a>
+    </div>
+    <div class="nav-right">
+      <div id="user-badge" style="display:none"></div>
+      <button class="btn-login" id="btn-auth" onclick="showPage('login')">Đăng nhập</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ TOAST ═══ -->
+<div id="toast-wrap"></div>
+
+<!-- ═══ PAGES ═══ -->
+<main id="app">
+
+  <!-- HOME PAGE -->
+  <section id="page-home" class="page active">
+    <div class="hero">
+      <div class="hero-content">
+        <div class="hero-badge">🏆 Nền tảng mua xe uy tín #1</div>
+        <h1>Tìm chiếc xe <span class="grad">hoàn hảo</span><br>dành cho bạn</h1>
+        <p>Hàng trăm mẫu xe chính hãng, giá tốt nhất thị trường.<br>Kết nối trực tiếp với hệ thống API hiện đại.</p>
+        <div class="hero-btns">
+          <button class="btn-hero-primary" onclick="showPage('products')">🛒 Xem sản phẩm</button>
+          <button class="btn-hero-ghost" onclick="showPage('categories')">📂 Danh mục xe</button>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-img-wrap">
+          <div class="hero-img-glow"></div>
+          <img src="images/hero_car.png" alt="Showroom xe cao cấp WebBanXe" loading="eager"/>
+          <div class="hero-img-overlay"></div>
+          <div class="hero-img-badge">
+            <div class="hero-img-badge-icon">🏆</div>
+            <div class="hero-img-badge-text">
+              <strong>Premium Quality</strong>
+              <span>Đảm bảo tuyệt đối – Cam kết chất lượng</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat"><span id="stat-products">–</span><label>Sản phẩm</label></div>
+      <div class="stat"><span id="stat-categories">–</span><label>Danh mục</label></div>
+      <div class="stat"><span>JWT</span><label>Bảo mật</label></div>
+      <div class="stat"><span>REST</span><label>API</label></div>
+    </div>
+    <div class="section-title">Nổi bật</div>
+    <div class="product-grid" id="featured-grid">
+      <div class="skeleton-row">Đang tải sản phẩm...</div>
+    </div>
+  </section>
+
+  <!-- PRODUCTS PAGE -->
+  <section id="page-products" class="page">
+    <div class="page-header">
+      <h2>🚗 Tất cả sản phẩm</h2>
+      <div class="page-header-right">
+        <input id="search-product" class="search-input" placeholder="🔍 Tìm theo tên, hãng..." oninput="filterProducts()"/>
+        <select id="filter-category" class="select-input" onchange="filterProducts()">
+          <option value="">Tất cả danh mục</option>
+        </select>
+      </div>
+    </div>
+    <div class="product-grid" id="product-grid">
+      <div class="skeleton-row">Đang tải...</div>
+    </div>
+  </section>
+
+  <!-- CATEGORIES PAGE -->
+  <section id="page-categories" class="page">
+    <div class="page-header">
+      <h2>📂 Danh mục xe</h2>
+    </div>
+    <div class="category-grid" id="category-grid">
+      <div class="skeleton-row">Đang tải...</div>
+    </div>
+  </section>
+
+  <!-- LOGIN PAGE -->
+  <section id="page-login" class="page">
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="auth-logo">🚗 WebBanXe</div>
+        <h2>Đăng nhập</h2>
+        <p class="auth-sub">Đăng nhập để truy cập tính năng quản lý</p>
+        <form id="login-form" onsubmit="doLogin(event)">
+          <div class="form-group">
+            <label>Tên đăng nhập</label>
+            <input id="inp-username" type="text" placeholder="admin" required autocomplete="username"/>
+          </div>
+          <div class="form-group">
+            <label>Mật khẩu</label>
+            <input id="inp-password" type="password" placeholder="••••••••" required autocomplete="current-password"/>
+          </div>
+          <button type="submit" class="btn-submit" id="btn-submit">
+            <span id="btn-submit-label">Đăng nhập</span>
+          </button>
+        </form>
+        <div id="login-error" class="login-error"></div>
+        <div class="auth-hint">💡 Tài khoản mặc định: <code>admin / password</code></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ADMIN PAGE -->
+  <section id="page-admin" class="page">
+    <div class="admin-header">
+      <h2>⚙ Bảng quản lý</h2>
+      <div class="admin-user" id="admin-user-info"></div>
+    </div>
+    <div class="admin-tabs">
+      <button class="admin-tab active" id="atab-product" onclick="switchAdminTab('product')">📦 Sản phẩm</button>
+      <button class="admin-tab" id="atab-category" onclick="switchAdminTab('category')">🗂 Danh mục</button>
+    </div>
+
+    <!-- Admin: Products -->
+    <div id="admin-product" class="admin-panel active">
+      <div class="admin-tool-bar">
+        <button class="btn-add" onclick="openProductModal()">+ Thêm sản phẩm</button>
+        <button class="btn-reload" onclick="loadAdminProducts()">↻ Làm mới</button>
+      </div>
+      <div class="table-wrap">
+        <table id="tbl-product">
+          <thead><tr><th>ID</th><th>Tên sản phẩm</th><th>Giá</th><th>Hãng</th><th>Danh mục</th><th>Thao tác</th></tr></thead>
+          <tbody id="tbody-product"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Admin: Categories -->
+    <div id="admin-category" class="admin-panel">
+      <div class="admin-tool-bar">
+        <button class="btn-add" onclick="openCategoryModal()">+ Thêm danh mục</button>
+        <button class="btn-reload" onclick="loadAdminCategories()">↻ Làm mới</button>
+      </div>
+      <div class="table-wrap">
+        <table id="tbl-category">
+          <thead><tr><th>ID</th><th>Tên danh mục</th><th>Slug</th><th>Sản phẩm</th><th>Thao tác</th></tr></thead>
+          <tbody id="tbody-category"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ═══ MODAL: Product ═══ -->
+<div id="modal-product" class="modal-overlay" onclick="closeModal('modal-product')">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span id="modal-product-title">Thêm sản phẩm</span>
+      <button class="modal-close" onclick="closeModal('modal-product')">✕</button>
+    </div>
+    <form id="form-product" onsubmit="submitProduct(event)">
+      <input type="hidden" id="p-id"/>
+      <div class="form-row2">
+        <div class="form-group">
+          <label>Tên sản phẩm *</label>
+          <input id="p-name" type="text" required placeholder="Honda Wave Alpha..."/>
+        </div>
+        <div class="form-group">
+          <label>Hãng xe</label>
+          <input id="p-brand" type="text" placeholder="Honda, Toyota..."/>
+        </div>
+      </div>
+      <div class="form-row2">
+        <div class="form-group">
+          <label>Giá (VNĐ) *</label>
+          <input id="p-price" type="number" required min="0" placeholder="18500000"/>
+        </div>
+        <div class="form-group">
+          <label>Danh mục</label>
+          <select id="p-category"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Mô tả *</label>
+        <textarea id="p-desc" required rows="3" placeholder="Mô tả chi tiết sản phẩm..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-product')">Hủy</button>
+        <button type="submit" class="btn-save" id="btn-save-product">💾 Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Category ═══ -->
+<div id="modal-category" class="modal-overlay" onclick="closeModal('modal-category')">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span id="modal-category-title">Thêm danh mục</span>
+      <button class="modal-close" onclick="closeModal('modal-category')">✕</button>
+    </div>
+    <form id="form-category" onsubmit="submitCategory(event)">
+      <input type="hidden" id="c-id"/>
+      <div class="form-group">
+        <label>Tên danh mục *</label>
+        <input id="c-name" type="text" required placeholder="Xe số, Xe tay ga..."/>
+      </div>
+      <div class="form-row2">
+        <div class="form-group">
+          <label>Slug</label>
+          <input id="c-slug" type="text" placeholder="xe-so (tự tạo nếu bỏ trống)"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Mô tả</label>
+        <textarea id="c-desc" rows="2" placeholder="Mô tả danh mục..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-category')">Hủy</button>
+        <button type="submit" class="btn-save" id="btn-save-category">💾 Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Product Detail ═══ -->
+<div id="modal-detail" class="modal-overlay" onclick="closeModal('modal-detail')">
+  <div class="modal-box modal-wide" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span id="detail-title">Chi tiết sản phẩm</span>
+      <button class="modal-close" onclick="closeModal('modal-detail')">✕</button>
+    </div>
+    <div id="detail-body"></div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
